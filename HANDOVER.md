@@ -233,6 +233,7 @@ pwsh -File .\uninstall.ps1
 | 现象 | 可能原因 / 处理 |
 |---|---|
 | 装完重启后完全没反应、无任何报错 | bundle 加载失败被静默跳过：仓库缺 `node_modules\@deepseek-ai` peer 解析层 → 重跑 `install.ps1`；自检应输出两行 `ok`（见下方“快速检查”） |
+| 旧会话 `/compact` 秒失败，提示里带 `Connection error.` | 官方摘要器**优先复用该会话最后一次路由的模型**（`summarizeWithLlm` 取 `session.requestHeader().config`，优先于当前模型）。旧会话若停在已下线/不可达的 provider，摘要请求就走那条死路由。处理：在该会话先发一条普通消息让它以当前模型重新路由，再 `/compact`；或新开会话 |
 | 启动失败或提示插件加载失败 | 先 `uninstall.ps1` 重启恢复官方行为；再查 `%DSH_HOME%\logs` 下的 startup 诊断（仅失败时生成） |
 | `/compact 重点…` 被当成普通消息发给模型 | 命令未注册（插件未加载）→ 确认已重启、junction 指向新路径、profile `bundles` 含 `dsh-compact-focus` |
 | Tab 后直接开始压缩、没有 chip | 当前进程还是官方无参数命令 → 未加载插件或未重启 |
