@@ -1,0 +1,69 @@
+{
+  "name": "dsh-compact-focus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Directed compaction for DeepSeek Harness: /compact <focus> keeps the summary's attention on what you ask for.",
+  "type": "module",
+  "main": "lib/engine.js",
+  "exports": {
+    ".": "./lib/engine.js",
+    "./command": "./lib/command.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./command/locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./command/icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "tools",
+    "cordis.patch.yml",
+    "standard-preset.source.yml",
+    "locale/*.json",
+    "icon.svg",
+    "install.ps1",
+    "uninstall.ps1",
+    "README.md",
+    "HANDOVER.md",
+    "COMPLIANCE.md",
+    "LICENSE"
+  ],
+  "icon": "./icon.svg",
+  "license": "MIT",
+  "author": "Shinarin",
+  "homepage": "https://github.com/Shinarin/dsh-compact-focus#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shinarin/dsh-compact-focus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Shinarin/dsh-compact-focus/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "compaction",
+    "compact",
+    "summary"
+  ],
+  "scripts": {
+    "check": "node --check lib/engine.js && node --check lib/command.js && node --check tools/asar.mjs && node --check tools/gen-focus-patch.mjs"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-commands": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-compaction": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-compaction-basic": ">=0.2.1-rc.1 <0.3.0-0"
+  }
+}

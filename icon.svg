@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Compact Focus">
+  <rect width="64" height="64" rx="14" fill="#1f6feb"/>
+  <path d="M16 17h32v6H16zM16 29h20v6H16zM16 41h12v6H16z" fill="#fff" opacity=".92"/>
+  <circle cx="45" cy="43" r="8.5" fill="#1f6feb" stroke="#fff" stroke-width="3.5"/>
+  <path d="M51 49.5 56 54.5" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+</svg>

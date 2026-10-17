@@ -1,0 +1,17 @@
+# Upgrade/spec extraction scratch files (never part of the plugin)
+_spec-dump/
+_current-standard.yml
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local backups and temporary files
+*.bak
+*.tmp
