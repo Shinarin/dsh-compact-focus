@@ -31,7 +31,7 @@
 | 验证 | 隔离 DSH_HOME 端到端 GUI 测试（压缩命令、focus 注入、摘要内容）+ 真实 profile 隔离启动（组合中出现 `compaction-focus` / `command-compact-focus` 行） |
 | 回滚 | `uninstall.ps1` + 重启；profile `package.json` 有自动备份 |
 
-> 注意：插件是**手工本地安装**（link + junction），没有通过 plugin_manager 安装，因此 DSH 插件管理页不会把它当成普通插件管理。不要用插件页对它做升级/卸载。
+> 注意：插件是**手工本地安装**（link + junction），没有通过 plugin_manager 安装。插件页可能把它列为 bundle，但请用本目录的 `install.ps1` / `uninstall.ps1` 管理，不要用插件页对它做升级/卸载。
 
 ---
 
