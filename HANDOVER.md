@@ -138,13 +138,17 @@ pwsh -File .\install.ps1
 
 脚本（幂等）：
 
-1. 删除并重建 `%DSH_PROFILE_DIR%\node_modules\dsh-compact-focus` junction → 指向插件实际目录；
-2. profile `package.json` 写入 `"dsh-compact-focus": "link:<当前目录（正斜杠）>"`；
-3. 把 `dsh-compact-focus` 追加进 `dsh.profile.bundles`。
+1. 在仓库内建 `node_modules\@deepseek-ai` junction → `%DSH_HOME%\profiles\node_modules\@deepseek-ai`；
+2. 删除并重建 `%DSH_PROFILE_DIR%\node_modules\dsh-compact-focus` junction → 指向插件实际目录；
+3. profile `package.json` 写入 `"dsh-compact-focus": "link:<当前目录（正斜杠）>"`；
+4. 把 `dsh-compact-focus` 追加进 `dsh.profile.bundles`；
+5. 用宿主同款导入方式验证两个入口（`node --expose-internals tools/check-install.mjs`），失败直接报错。
 
 脚本会先备份 `package.json` 为 `package.json.dsh-compact-focus.bak`。
 
 > ⚠️ 把项目目录移走后**必须重跑 install.ps1**，否则 junction 指向旧路径、重启后插件消失。
+
+**为什么第 1 步是必须的**：`link:` 安装时，Node 先把插件包解析到它在磁盘上的**物理路径**（即本仓库），再从该路径向上查找 `@deepseek-ai/*`。宿主的这些包只在 `%DSH_HOME%\profiles\node_modules` 一侧可解析；仓库目录缺少这一层时，两个入口都会 `ERR_MODULE_NOT_FOUND`，而 DSH 会**静默跳过整个 bundle 继续启动**——现象就是“装好后毫无反应”，界面上没有任何报错。这不是猜测：`dsh-compact-focus` 与 `dsh-compact-focus/command` 在宿主同款 `internal.import()` 路径下都曾复现该错误。
 
 ### 6.2 生效
 
@@ -217,7 +221,7 @@ pwsh -File .\uninstall.ps1
 4. **preset 快照脆弱**：DSH 升级改动 standard 预设后必须重生成 `cordis.patch.yml`（§6.3），否则可能丢掉新插件/引用不存在的包。
 5. **只能引导摘要重点，不能指定压缩范围**：范围仍由官方 `compactNow` 选（最旧的平衡范围）；focus 也不改变固定输出结构。
 6. **focus 一次性**：只作用于该次 `/compact`，不会持久化。
-7. **不走插件管理器**：link + junction 手工安装；插件页的升级/卸载可能破坏或忽略它。升级/卸载请用本目录脚本。
+7. **不走插件管理器**：link + junction 手工安装；插件页的升级/卸载可能破坏或忽略它。升级/卸载请用本目录脚本。仓库内的 `node_modules\@deepseek-ai` 是 link 安装的 peer 解析层，删掉会让插件整体加载失败（§6.1）。
 8. **目录移动**：移走目录后必须重跑 `install.ps1`（junction 是绝对路径）。
 9. **profile 备份文件**：profile 目录里有 `package.json.dsh-compact-focus*.bak`，属正常回滚材料。
 10. **DSH 自动更新后 GUI 端口会变**（本次从 3598 → 4807），与插件无关。
@@ -228,6 +232,7 @@ pwsh -File .\uninstall.ps1
 
 | 现象 | 可能原因 / 处理 |
 |---|---|
+| 装完重启后完全没反应、无任何报错 | bundle 加载失败被静默跳过：仓库缺 `node_modules\@deepseek-ai` peer 解析层 → 重跑 `install.ps1`；自检应输出两行 `ok`（见下方“快速检查”） |
 | 启动失败或提示插件加载失败 | 先 `uninstall.ps1` 重启恢复官方行为；再查 `%DSH_HOME%\logs` 下的 startup 诊断（仅失败时生成） |
 | `/compact 重点…` 被当成普通消息发给模型 | 命令未注册（插件未加载）→ 确认已重启、junction 指向新路径、profile `bundles` 含 `dsh-compact-focus` |
 | Tab 后直接开始压缩、没有 chip | 当前进程还是官方无参数命令 → 未加载插件或未重启 |
@@ -243,6 +248,8 @@ $p = Get-Content "$env:DSH_HOME\profiles\desktop\package.json" -Raw | ConvertFro
 $p.dependencies.'dsh-compact-focus'                     # 应为 link:<repo 的绝对路径（正斜杠）>
 $p.dsh.profile.bundles -contains 'dsh-compact-focus'    # 应为 True
 (Get-Item "$env:DSH_HOME\profiles\desktop\node_modules\dsh-compact-focus").Target
+(Get-Item .\node_modules\@deepseek-ai).Target           # 应为 <DSH_HOME>\profiles\node_modules\@deepseek-ai
+npm run check:install                                   # 两行 ok 才说明宿主能加载
 ```
 
 ---
@@ -266,6 +273,7 @@ $p.dsh.profile.bundles -contains 'dsh-compact-focus'    # 应为 True
 | 2026-10-17 | DSH 自动更新到 0.2.1-rc.2；核对 standard 预设与相关 API 未变，插件继续可用 |
 | 2026-10-17 | 项目从旧目录移到当前仓库目录；重跑 install.ps1 更新 link/junction；真实 profile 隔离启动验证通过；补交接文档 |
 | 2026-10-17 | 按 DSH 0.2.1-rc.2 官方插件规范补齐 locale/icon、`manifestVersion`、exports/files、license；移除无用常量；新增 `COMPLIANCE.md`；文档路径通用化；创建公开 GitHub 仓库并推送 |
+| 2026-10-17 | **修复 link 安装后插件不加载**：仓库补 `node_modules\@deepseek-ai` junction 作为 peer 解析层；`install.ps1` 增加建链与宿主同款加载自检（`tools/check-install.mjs`），`uninstall.ps1` 同步清理；文档补根因、排查与验证 |
 
 ---
 

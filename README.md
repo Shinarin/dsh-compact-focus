@@ -50,13 +50,24 @@ pwsh -File .\install.ps1
 > 所以本仓库用 `install.ps1` 建 junction；其他 profile 可优先使用官方的
 > `plugin_manager` `install_bundle`。
 
-脚本做三件事（可重复执行）：
+脚本做四件事（可重复执行）：
 
-1. 在 `%DSH_HOME%\profiles\desktop\node_modules\dsh-compact-focus` 建一个指向本目录的 junction；
-2. 在 profile 的 `package.json` 里加入 `"dsh-compact-focus": "link:<本目录>"` 依赖；
-3. 把 `dsh-compact-focus` 追加到 `dsh.profile.bundles`，让本包的 `cordis.patch.yml` 生效。
+1. 在仓库内建 `node_modules\@deepseek-ai` junction → `%DSH_HOME%\profiles\node_modules\@deepseek-ai`；
+2. 在 `%DSH_HOME%\profiles\desktop\node_modules\dsh-compact-focus` 建一个指向本目录的 junction；
+3. 在 profile 的 `package.json` 里加入 `"dsh-compact-focus": "link:<本目录>"` 依赖；
+4. 把 `dsh-compact-focus` 追加到 `dsh.profile.bundles`，让本包的 `cordis.patch.yml` 生效。
+
+最后用宿主同款导入方式自检两个入口，失败会直接报错。
+
+> 第 1 步不是多余的：`link:` 安装时 Node 从本仓库的**物理路径**解析插件的 `@deepseek-ai/*` 依赖。缺了这层，两个入口都会 `ERR_MODULE_NOT_FOUND`，而 DSH 会静默跳过整个 bundle —— 表现为“装好后毫无反应、也没有报错”。
 
 然后**完全退出并重新启动 DSH desktop**。重启后新建会话，输入 `/compact 重点…` 即可。
+
+确认安装是否真的可加载：
+
+```powershell
+npm run check:install    # 两行 ok 才算装好
+```
 
 ## 卸载
 
@@ -81,6 +92,7 @@ $env:DSH_COMPACT_FOCUS_DEBUG = '1'   # 在启动 DSH 的环境中设置
 - 每次 `/compact` 的 focus 只作用于该次摘要；不会持久化为以后每次压缩的默认值。
 - 压缩不缩小系统提示词、工具定义和 session 前缀；单个不可分的大单元仍可能压不动。
 - 摘要本身仍是一次额外的模型调用；focus 指令只增加几十个 token。
+- 安装依赖仓库内的 `node_modules\@deepseek-ai` 软链来解析宿主依赖；删掉它插件会整体加载失败，重跑 `install.ps1` 即可修复。
 
 ## DSH 插件规范符合性
 

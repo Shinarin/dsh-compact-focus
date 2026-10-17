@@ -35,5 +35,17 @@ if (Test-Path $linkPath) {
   }
 }
 
+$peerLink = Join-Path (Join-Path $pluginDir 'node_modules') '@deepseek-ai'
+if (Test-Path $peerLink) {
+  $peerItem = Get-Item $peerLink -Force
+  $peerIsReparse = [bool]($peerItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+  if ($peerIsReparse) {
+    [System.IO.Directory]::Delete($peerLink)
+    Write-Host "removed peer link: $peerLink"
+  } else {
+    Write-Warning "$peerLink is a real directory; left in place for manual review"
+  }
+}
+
 Write-Host ''
 Write-Host 'Uninstalled. Fully quit and restart DeepSeek Harness.'

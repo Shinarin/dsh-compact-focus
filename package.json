@@ -49,7 +49,8 @@
     "summary"
   ],
   "scripts": {
-    "check": "node --check lib/engine.js && node --check lib/command.js && node --check tools/asar.mjs && node --check tools/gen-focus-patch.mjs"
+    "check": "node --check lib/engine.js && node --check lib/command.js && node --check tools/asar.mjs && node --check tools/gen-focus-patch.mjs && node --check tools/check-install.mjs",
+    "check:install": "node --expose-internals tools/check-install.mjs"
   },
   "dsh": {
     "manifestVersion": 1,

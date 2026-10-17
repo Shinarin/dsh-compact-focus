@@ -135,12 +135,14 @@
 | 快照与安装包 `standard.patch.yml` 比对 | ✅ SHA-256 一致 |
 | 官方兼容性范围（0.2.1-rc.2） | ✅ |
 | 隔离 `DSH_HOME` + `--dump-config` 组合 | ✅ exit 0，1231 行，`patched by dsh-compact-focus`，compaction 组为 `compaction-focus` / `command-compact-focus`，无错误行 |
+| 宿主同款导入验证（`internal.import`，两个入口） | ✅ 修复 peer 解析后两行 `ok`；修复前两行 `ERR_MODULE_NOT_FOUND` |
 
 验证边界：
 
 - `--dump-config` 证明**组合成功**（bundle patch 被正确应用、两个 row 进入 `preset-standard`），不证明插件激活后的运行时行为；
 - 本次没有重启用户正在运行的 DSH desktop，因此没有在 GUI 中重新做 `/compact` 端到端与插件页图标渲染复核。运行时行为和 focus 注入效果已在 [HANDOVER.md](HANDOVER.md) §7 的隔离 GUI 测试中验证（rc.1 实测；rc.2 核对了 standard 预设与相关 API 未变）；本次改动不改变无 focus 的默认路径，也不改变摘要注入逻辑；
 - 图标按官方读取逻辑（SVG、≤256 KiB、包内相对路径、导出 `./icon`）校验，实际像素渲染以插件页为准。
+- `--dump-config` **不导入插件代码**，因此不能证明插件可加载：`link:` 安装还要求仓库自身能解析宿主提供的 `@deepseek-ai/*`。这一层由 `npm run check:install`（与宿主相同的 `internal.import` 路径）覆盖，`install.ps1` 也会在安装末尾强制跑一次。
 
 ---
 
