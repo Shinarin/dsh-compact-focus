@@ -92,8 +92,10 @@
 - 注册同名 `compact`，声明 `input: { hint: … }`。
   - **为什么必须声明 input**：客户端 `matchEnter` 对“没有 input 声明”的宿主命令只在裸 token 时执行；带空格参数的行会被当成模型提示词发给模型。声明 input 后，客户端走 leadingInput claim 路径，把尾随文本当参数提交。
   - 代价：裸 `/compact` 回车会先变成指令 chip，再回一次车执行（官方带 input 命令的通用交互）。
-- 处理器：`rawInput.trim()` → 有文本则 `ctx.compaction.setFocus(session, focus)`；随后 `ctx.compaction.compactNow(agent, signal, commandId)`（与官方命令同一入口）；`finally` 清除 focus，避免泄漏到后续自动压缩。
-- 错误码沿用官方 `ManualCompactionError`（busy/cancelled/changed/summary/commit/persistence），文案汉化；失败提示会回显本次重点（`（本次摘要重点：…）`，上限 120 字）并附带真实原因（`error.cause` 首行）；成功文案带“摘要重点：<文本>”，但**成功那一行由客户端渲染压缩标记，不会显示该文案**（见 §9）。
+- 处理器：`rawInput.trim()` → 有文本则 `ctx.compaction.setFocus(session, focus)`；随后 `ctx.compaction.compactNow(agent, signal, 命令 id)`；`finally` 清除 focus，避免泄漏到后续自动压缩。
+- **命令 id 的取舍**：带重点时**不传** `sourceCommandId`。客户端只要看到 checkpoint 带匹配的 `sourceCommandId` 就会把命令卡与压缩标记合并，而合并后的标记用固定文案、丢掉 `command/done` 文本。不传 id 后 checkpoint 走“自动压缩”渲染：命令卡单独可见（内容就是你写的重点），下面另有 `上下文已压缩` 标记。裸 `/compact` 仍传 id，保持单行合并。
+- 结果文案：带重点时成功行**只显示重点原文**；失败行回显 `（本次摘要重点：…）`（≤120 字）并附带真实原因（`error.cause` 首行）；裸命令成功行仍是 `已压缩 N 条历史记录（约 X tokens）。`。
+- 这些文案都只是聊天记录：`command/*` 不在 `SURFACE_EVENT_TYPES`（`dsh-session`）里，不进模型上下文。
 - focus 上限 4000 字符。
 
 ### 4.5 为什么 focus 放“摘要指令之前”
@@ -241,8 +243,8 @@ pwsh -File .\uninstall.ps1
 | 启动失败或提示插件加载失败 | 先 `uninstall.ps1` 重启恢复官方行为；再查 `%DSH_HOME%\logs` 下的 startup 诊断（仅失败时生成） |
 | `/compact 重点…` 被当成普通消息发给模型 | 命令未注册（插件未加载）→ 确认已重启、junction 指向新路径、profile `bundles` 含 `dsh-compact-focus` |
 | Tab 后直接开始压缩、没有 chip | 当前进程还是官方无参数命令 → 未加载插件或未重启 |
-| 结果里没有“摘要重点：…” | 要么没输入 focus（默认路径），要么旧进程；成功后那一行由客户端 `CompactionItem` 渲染（只显示条数/tokens），插件文案不会显示——失败提示才会回显重点 |
-| 摘要成功但看不到自己写的重点 | 客户端行为：成功后渲染 `CompactionItem`（`message.compaction.completed` + 条数/tokens），只要压缩计数存在就**不会**回退到 `command/done` 文本。重点仍记录在 `command/run.args` 与 `command/done`；失败提示会回显重点（≤120 字） |
+| 结果里没有重点 | 要么没输入 focus（默认路径，走单行合并），要么旧进程；带重点时应显示两行：`compact · <重点>` + `上下文已压缩 · 已压缩 N 条…` |
+| 带重点却只看到一行、找不到重点 | 旧进程（< `b2c0f2a` 之后的版本）；或 checkpoint 仍带 `sourceCommandId`（合并路径），检查 `command.js` 是否按“带重点不传 id”调用 |
 | 有空摘要、summary 失败 | 模型路由/凭据问题，与本插件无关；命令会按官方错误码提示 |
 | 想确认 focus 是否注入 | 启动 DSH 前设 `DSH_COMPACT_FOCUS_DEBUG=1`，看 stderr 的 `[dsh-compact-focus] injecting …` |
 | DSH 升级后再也不生效 | 多半是 standard 预设快照过期 → 按 §6.3 重生成 |
@@ -281,7 +283,8 @@ npm run check:install                                   # 两行 ok 才说明宿
 | 2026-10-17 | 按 DSH 0.2.1-rc.2 官方插件规范补齐 locale/icon、`manifestVersion`、exports/files、license；移除无用常量；新增 `COMPLIANCE.md`；文档路径通用化；创建公开 GitHub 仓库并推送 |
 | 2026-10-17 | **修复 link 安装后插件不加载**：仓库补 `node_modules\@deepseek-ai` junction 作为 peer 解析层；`install.ps1` 增加建链与宿主同款加载自检（`tools/check-install.mjs`），`uninstall.ps1` 同步清理；文档补根因、排查与验证 |
 | 2026-10-17 | 摘要改用**会话当前选中的模型**（读取最新 `model/selection`），避免旧会话/切换模型后复用过期路由；显式 `summarizationProvider` 仍最优先；实现为每调用视图，不改共享配置。`/compact` 失败提示附带真实原因 |
-| 2026-10-17 | 失败提示回显本次摘要重点（≤120 字）；确认成功行由客户端 `CompactionItem` 渲染、插件文案不显示，写入文档与排查表 |
+| 2026-10-17 | 失败提示回显本次摘要重点（≤120 字） |
+| 2026-10-17 | 带重点的 `/compact` 改为两行渲染：命令卡只显示重点原文，客户端压缩标记独立一行（带重点时不传 `sourceCommandId`，客户端因此不合并）；裸 `/compact` 保持单行合并 |
 
 ---
 
