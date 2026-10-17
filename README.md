@@ -23,6 +23,8 @@ DSH 的压缩（compaction）会把“会话表面上的一段较早历史”替
 
 其余行为完全沿用官方实现：自动压缩、阈值、保留近期尾部、`compaction/start`→`compaction/summary`→`compaction/end` 事务、token 计价、错误码都不变。focus 只对“由本次命令触发的那一次摘要”生效，自动压缩永远不受影响。
 
+摘要**使用你在该会话里当前选中的模型**，而不是“该会话上一次请求用过的模型”。官方摘要器优先复用会话最后一次路由的模型，模型切换后或隔天恢复的旧会话里，这会把摘要请求发到你已经不用的 provider（典型现象：`/compact` 秒失败并报 `Connection error.`）。本插件读取会话日志里最新的 `model/selection`，用当前选择覆盖它；如果行配置里显式写了 `summarizationProvider`，那仍然是最高优先级（用于固定摘要模型）。
+
 摘要的固定 Markdown 结构不变；focus 只影响结构内的重点取舍，不会新增章节。命令结果会把重点写进 `command/done`（会话日志可查，例如 `已压缩 8 条历史记录（约 752 tokens）。摘要重点：重点总结项目框架`）。
 
 ## 使用方式
@@ -92,6 +94,7 @@ $env:DSH_COMPACT_FOCUS_DEBUG = '1'   # 在启动 DSH 的环境中设置
 - 每次 `/compact` 的 focus 只作用于该次摘要；不会持久化为以后每次压缩的默认值。
 - 压缩不缩小系统提示词、工具定义和 session 前缀；单个不可分的大单元仍可能压不动。
 - 摘要本身仍是一次额外的模型调用；focus 指令只增加几十个 token。
+- 摘要走“当前选中模型”：若该模型的上下文窗口小于要压缩的历史，摘要会失败；换回大窗口模型，或在行配置里显式固定 `summarizationProvider`/`summarizationModel`。
 - 安装依赖仓库内的 `node_modules\@deepseek-ai` 软链来解析宿主依赖；删掉它插件会整体加载失败，重跑 `install.ps1` 即可修复。
 
 ## DSH 插件规范符合性

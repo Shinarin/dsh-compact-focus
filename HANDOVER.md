@@ -80,8 +80,12 @@
   - `summarize` 时取出 focus，把一条 **focus 指令 user 消息** 追加在回放历史之后（官方冻结指令之前），再调用 `super.summarize(...)`；
   - 指令明确要求：把重点融进官方固定结构、不要新增章节、不要复述这条指令本身（措辞经过实测调优，避免 focus 指令泄漏进摘要）。
 - 其余全部继承：自动压缩、阈值/溢出、保留尾部、锁、token 计价、失败恢复。
-- 无 focus 时直接 `super.summarize(...)`，与官方完全一致。
-- 可选调试：环境变量 `DSH_COMPACT_FOCUS_DEBUG=1`，注入时 stderr 打印 `[dsh-compact-focus] injecting N-char focus …`。
+- 无 focus 时同样走下面的路由逻辑；无选中模型记录时直接 `super.summarize(...)`，与官方完全一致。
+- **摘要路由**（`summarizationRoute` + `latestModelSelection`）：
+  - 官方 `summarizeWithLlm` 的目标优先级是 `显式配置 → 会话最后一次路由 → agent 选项`；第二项在切换模型后、或恢复隔天旧会话时是**过期**的，会把摘要请求打到用户已经不用的 provider（`/compact` 秒失败 + `Connection error.`）。
+  - 本插件从会话日志读最新 `model/selection`（`session.snapshotEvents()`，只读）作为当前选择，经行配置 `summarizationProvider/Model` 注入；显式配置仍优先。
+  - **不能临时改 `this.config`**：预设在 `createScope` 作用域里挂载，同一预设的多个会话共享一个引擎实例，改共享配置会与另一次压缩串扰。实现改为 `Object.create(this)` 的每调用视图（自带合并后的 `config`，其余字段继承自真实实例），调用结束即丢弃。
+- 可选调试：环境变量 `DSH_COMPACT_FOCUS_DEBUG=1`，注入 focus / 选中模型时 stderr 各打印一行。
 
 ### 4.4 命令：`lib/command.js`
 
@@ -233,7 +237,7 @@ pwsh -File .\uninstall.ps1
 | 现象 | 可能原因 / 处理 |
 |---|---|
 | 装完重启后完全没反应、无任何报错 | bundle 加载失败被静默跳过：仓库缺 `node_modules\@deepseek-ai` peer 解析层 → 重跑 `install.ps1`；自检应输出两行 `ok`（见下方“快速检查”） |
-| 旧会话 `/compact` 秒失败，提示里带 `Connection error.` | 官方摘要器**优先复用该会话最后一次路由的模型**（`summarizeWithLlm` 取 `session.requestHeader().config`，优先于当前模型）。旧会话若停在已下线/不可达的 provider，摘要请求就走那条死路由。处理：在该会话先发一条普通消息让它以当前模型重新路由，再 `/compact`；或新开会话 |
+| 旧会话 `/compact` 秒失败，提示里带 `Connection error.` | 旧版本会复用会话最后一次路由的模型（`summarizeWithLlm` 取 `session.requestHeader().config`），模型切换后/恢复旧会话后指向已不可达的 provider。本版本改为使用会话当前选中的模型；若仍失败，说明**当前选中模型**的 provider 不可达（查 `profiles/<name>/cordis.patch.yml` 里的 baseURL/端口），或行配置显式 `summarizationProvider` 指了死路由 |
 | 启动失败或提示插件加载失败 | 先 `uninstall.ps1` 重启恢复官方行为；再查 `%DSH_HOME%\logs` 下的 startup 诊断（仅失败时生成） |
 | `/compact 重点…` 被当成普通消息发给模型 | 命令未注册（插件未加载）→ 确认已重启、junction 指向新路径、profile `bundles` 含 `dsh-compact-focus` |
 | Tab 后直接开始压缩、没有 chip | 当前进程还是官方无参数命令 → 未加载插件或未重启 |
@@ -275,6 +279,7 @@ npm run check:install                                   # 两行 ok 才说明宿
 | 2026-10-17 | 项目从旧目录移到当前仓库目录；重跑 install.ps1 更新 link/junction；真实 profile 隔离启动验证通过；补交接文档 |
 | 2026-10-17 | 按 DSH 0.2.1-rc.2 官方插件规范补齐 locale/icon、`manifestVersion`、exports/files、license；移除无用常量；新增 `COMPLIANCE.md`；文档路径通用化；创建公开 GitHub 仓库并推送 |
 | 2026-10-17 | **修复 link 安装后插件不加载**：仓库补 `node_modules\@deepseek-ai` junction 作为 peer 解析层；`install.ps1` 增加建链与宿主同款加载自检（`tools/check-install.mjs`），`uninstall.ps1` 同步清理；文档补根因、排查与验证 |
+| 2026-10-17 | 摘要改用**会话当前选中的模型**（读取最新 `model/selection`），避免旧会话/切换模型后复用过期路由；显式 `summarizationProvider` 仍最优先；实现为每调用视图，不改共享配置。`/compact` 失败提示附带真实原因 |
 
 ---
 
